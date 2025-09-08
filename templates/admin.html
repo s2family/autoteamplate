@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Browser Automation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header admin-header">
+            <div class="header-content">
+                <h1><i class="fas fa-cog"></i> Admin Dashboard</h1>
+                <div class="user-info">
+                    <span>Welcome, {{ session.username }} (Admin)</span>
+                    <a href="{{ url_for('automation') }}" class="btn btn-info">
+                        <i class="fas fa-user"></i> User View
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-secondary">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">
+                            <i class="fas fa-info-circle"></i>
+                            {{ message }}
+                            <button class="close-alert">&times;</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Statistics Dashboard -->
+        <section class="stats-section">
+            <h2><i class="fas fa-chart-bar"></i> System Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_scenarios }}</h3>
+                        <p>Total Scenarios</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-globe"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.public_scenarios }}</h3>
+                        <p>Public Scenarios</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-lock"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_scenarios - stats.public_scenarios }}</h3>
+                        <p>Private Scenarios</p>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-content">
+                        <h3>{{ stats.total_users }}</h3>
+                        <p>Total Users</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- All Scenarios Management -->
+            <section class="scenarios-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-list"></i> All Scenarios Management</h2>
+                    <div class="admin-controls">
+                        <select id="adminFilter" onchange="filterAdminScenarios()">
+                            <option value="all">All Scenarios</option>
+                            <option value="public">Public Only</option>
+                            <option value="private">Private Only</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="exportScenarios()">
+                            <i class="fas fa-download"></i> Export All
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-table-container">
+                    <table class="admin-table" id="scenariosTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Name</th>
+                                <th>Creator</th>
+                                <th>Status</th>
+                                <th>Steps</th>
+                                <th>Created</th>
+                                <th>Updated</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for scenario in scenarios %}
+                            <tr data-public="{{ scenario.is_public }}" data-id="{{ scenario.id }}">
+                                <td>{{ scenario.id }}</td>
+                                <td>
+                                    <strong>{{ scenario.name }}</strong>
+                                    {% if scenario.description %}
+                                        <br><small class="text-muted">{{ scenario.description[:50] }}{% if scenario.description|length > 50 %}...{% endif %}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ scenario.creator_name or 'Unknown' }}</td>
+                                <td>
+                                    {% if scenario.is_public %}
+                                        <span class="status-badge public">
+                                            <i class="fas fa-globe"></i> Public
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge private">
+                                            <i class="fas fa-lock"></i> Private
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="steps-count" id="adminStepCount{{ scenario.id }}">
+                                        Loading...
+                                    </span>
+                                </td>
+                                <td>{{ scenario.created_at[:10] }}</td>
+                                <td>{{ scenario.updated_at[:10] }}</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="btn btn-info btn-xs" onclick="adminViewScenario({{ scenario.id }})">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button class="btn btn-primary btn-xs" onclick="adminEditScenario({{ scenario.id }})">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                        <form method="POST" action="{{ url_for('web_update_scenario', scenario_id=scenario.id) }}" style="display: inline;">
+                                            <input type="hidden" name="action" value="toggle_public">
+                                            <button type="submit" class="btn btn-warning btn-xs" title="Toggle Visibility">
+                                                {% if scenario.is_public %}
+                                                    <i class="fas fa-eye-slash"></i>
+                                                {% else %}
+                                                    <i class="fas fa-globe"></i>
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('web_update_scenario', scenario_id=scenario.id) }}" 
+                                              style="display: inline;" onsubmit="return confirm('Are you sure you want to delete this scenario?')">
+                                            <input type="hidden" name="action" value="delete">
+                                            <button type="submit" class="btn btn-danger btn-xs">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                {% if not scenarios %}
+                <div class="empty-state">
+                    <i class="fas fa-database fa-3x"></i>
+                    <h3>No Scenarios Found</h3>
+                    <p>No automation scenarios have been created yet.</p>
+                </div>
+                {% endif %}
+            </section>
+
+            <!-- System Management -->
+            <section class="system-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-server"></i> System Management</h2>
+                </div>
+
+                <div class="system-grid">
+                    <div class="system-card">
+                        <h3><i class="fas fa-database"></i> Database</h3>
+                        <p>Manage database operations and maintenance</p>
+                        <div class="system-actions">
+                            <button class="btn btn-info" onclick="backupDatabase()">
+                                <i class="fas fa-download"></i> Backup
+                            </button>
+                            <button class="btn btn-warning" onclick="cleanupDatabase()">
+                                <i class="fas fa-broom"></i> Cleanup
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="system-card">
+                        <h3><i class="fas fa-users"></i> User Management</h3>
+                        <p>View and manage user accounts</p>
+                        <div class="system-actions">
+                            <button class="btn btn-primary" onclick="viewUsers()">
+                                <i class="fas fa-list"></i> View Users
+                            </button>
+                            <button class="btn btn-success" onclick="createUser()">
+                                <i class="fas fa-user-plus"></i> Add User
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="system-card">
+                        <h3><i class="fas fa-chart-line"></i> Analytics</h3>
+                        <p>View system usage and performance metrics</p>
+                        <div class="system-actions">
+                            <button class="btn btn-info" onclick="viewAnalytics()">
+                                <i class="fas fa-chart-bar"></i> View Stats
+                            </button>
+                            <button class="btn btn-secondary" onclick="generateReport()">
+                                <i class="fas fa-file-alt"></i> Generate Report
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Admin Modals -->
+    <!-- View Scenario Modal -->
+    <div id="adminViewModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3 id="adminViewModalTitle">Scenario Details</h3>
+                <span class="close" onclick="closeModal('adminViewModal')">&times;</span>
+            </div>
+            <div class="modal-body" id="adminViewModalBody">
+                <!-- Content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Scenario Modal -->
+    <div id="adminEditModal" class="modal">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h3>Edit Scenario (Admin)</h3>
+                <span class="close" onclick="closeModal('adminEditModal')">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="adminEditScenarioForm" method="POST">
+                    <input type="hidden" name="action" value="update">
+                    
+                    <div class="form-group">
+                        <label for="adminEditName">Scenario Name:</label>
+                        <input type="text" id="adminEditName" name="name" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="adminEditDescription">Description:</label>
+                        <textarea id="adminEditDescription" name="description" rows="3" maxlength="500"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" name="is_public" id="adminEditIsPublic">
+                            Make this scenario public
+                        </label>
+                    </div>
+
+                    <!-- Admin Edit Steps Builder -->
+                    <div class="steps-builder">
+                        <h3><i class="fas fa-list-ol"></i> Automation Steps</h3>
+                        <div class="steps-toolbar">
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('open_browser')">
+                                <i class="fas fa-globe"></i> Open Browser
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('wait')">
+                                <i class="fas fa-clock"></i> Wait
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('wait_element')">
+                                <i class="fas fa-search"></i> Wait Element
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('click')">
+                                <i class="fas fa-mouse-pointer"></i> Click
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('upload')">
+                                <i class="fas fa-upload"></i> Upload
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('download')">
+                                <i class="fas fa-download"></i> Download
+                            </button>
+                            <button type="button" class="btn btn-sm" onclick="addAdminEditStep('javascript')">
+                                <i class="fas fa-code"></i> JavaScript
+                            </button>
+                        </div>
+
+                        <div id="adminEditStepsList" class="steps-list">
+                            <!-- Steps will be added here dynamically -->
+                        </div>
+
+                        <input type="hidden" name="steps" id="adminEditStepsData">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Update Scenario
+                        </button>
+                        <button type="button" class="btn btn-secondary" onclick="closeModal('adminEditModal')">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script>
+        // Load steps count for each scenario in admin table
+        document.addEventListener('DOMContentLoaded', function() {
+            {% for scenario in scenarios %}
+                loadAdminScenarioPreview({{ scenario.id }}, {{ scenario.steps|tojson }});
+            {% endfor %}
+        });
+    </script>
+</body>
+</html>

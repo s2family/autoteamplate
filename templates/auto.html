@@ -1,0 +1,2745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Visual Workflow Editor v2.0</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Reset and Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f8f9fa;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Enhanced Visual Workflow Editor Styles */
+        .workflow-editor {
+            position: relative;
+            height: 100vh;
+            border: 2px solid #e0e0e0;
+            border-radius: 0;
+            overflow: hidden;
+            background: #f8f9fa url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><circle cx="1" cy="1" r="1" fill="%23d1d5db"/></svg>') repeat;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+
+        .workflow-editor.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 9999;
+            border-radius: 0;
+            border: none;
+        }
+
+        /* Enhanced Sidebar with New Node Categories */
+        .workflow-sidebar {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 300px;
+            height: 100%;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border-right: 2px solid #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 20;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .workflow-sidebar.collapsed { transform: translateX(-100%); }
+
+        .workflow-sidebar h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .sidebar-toggle {
+            position: absolute;
+            right: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 60px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            transition: all 0.3s ease;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+        }
+
+        .sidebar-toggle:hover { background: #2563eb; width: 36px; }
+        .sidebar-toggle i { transition: transform 0.3s ease; }
+        .workflow-sidebar.collapsed + .sidebar-toggle i { transform: rotate(180deg); }
+
+        /* Enhanced Node Palette with New Categories */
+        .node-palette { display: grid; gap: 12px; }
+        .palette-section { margin-bottom: 24px; }
+        .palette-section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            padding-left: 4px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .palette-section-title i {
+            font-size: 14px;
+            width: 16px;
+        }
+
+        .palette-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            background: #ffffff;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: grab;
+            transition: all 0.25s ease;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            font-size: 13px;
+        }
+
+        .palette-item:hover {
+            background: #f1f5f9;
+            border-color: var(--category-color);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .palette-item:active { cursor: grabbing; transform: translateY(0); }
+        .palette-item i { 
+            margin-right: 10px; 
+            font-size: 14px; 
+            width: 18px; 
+            text-align: center;
+            color: var(--category-color);
+        }
+        .palette-item span { font-weight: 500; color: #374151; }
+
+        /* Category Color Variables */
+        .palette-item.basic { --category-color: #3b82f6; }
+        .palette-item.navigation { --category-color: #8b5cf6; }
+        .palette-item.interaction { --category-color: #10b981; }
+        .palette-item.keyboard { --category-color: #f59e0b; }
+        .palette-item.data { --category-color: #ef4444; }
+        .palette-item.control { --category-color: #06b6d4; }
+        .palette-item.file { --category-color: #84cc16; }
+
+        /* Enhanced Properties Panel */
+        .node-properties {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 370px;
+            height: 100%;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border-left: 2px solid #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+            z-index: 20;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+
+        .node-properties.collapsed { transform: translateX(100%); }
+
+        .properties-toggle {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 60px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 8px 0 0 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            transition: all 0.3s ease;
+            box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+        }
+
+        .properties-toggle:hover { background: #059669; width: 36px; }
+        .properties-toggle i { transition: transform 0.3s ease; }
+        .node-properties.collapsed + .properties-toggle i { transform: rotate(180deg); }
+
+        .node-properties h3 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Enhanced Property Fields */
+        .property-group {
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .property-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #374151;
+            font-size: 13px;
+        }
+
+        .property-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 13px;
+            transition: all 0.25s ease;
+            background: #ffffff;
+        }
+
+        .property-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        .property-input:invalid { border-color: #ef4444; }
+        .property-input[type="checkbox"] { width: auto; margin-right: 8px; transform: scale(1.1); }
+        .property-input[type="textarea"] { min-height: 80px; resize: vertical; }
+
+        .property-help {
+            display: block;
+            margin-top: 6px;
+            font-size: 11px;
+            color: #6b7280;
+            font-style: italic;
+        }
+
+        /* Enhanced Floating Toolbar */
+        .workflow-toolbar {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 60px;
+            background: linear-gradient(135deg, #ffffff, #f8fafc);
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            gap: 12px;
+            z-index: 30;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+        }
+
+        .toolbar-btn {
+            padding: 8px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            background: #ffffff;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.25s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .toolbar-btn:hover {
+            background: #f3f4f6;
+            border-color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .toolbar-btn.active {
+            background: #3b82f6;
+            color: #ffffff;
+            border-color: #3b82f6;
+        }
+
+        .toolbar-separator { width: 1px; height: 30px; background: #e5e7eb; }
+
+        .workflow-stats {
+            display: flex;
+            gap: 16px;
+            margin-left: auto;
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .workflow-stats span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-weight: 500;
+        }
+
+        /* Enhanced Canvas Layout */
+        .workflow-canvas {
+            position: absolute;
+            top: 0;
+            left: 300px;
+            right: 370px;
+            height: 100%;
+            overflow: hidden;
+            cursor: grab;
+            transition: all 0.3s ease;
+        }
+
+        .workflow-canvas:active { cursor: grabbing; }
+        .workflow-editor.sidebar-collapsed .workflow-canvas { left: 0; }
+        .workflow-editor.properties-collapsed .workflow-canvas { right: 0; }
+        .workflow-editor.both-collapsed .workflow-canvas { left: 0; right: 0; }
+
+        .canvas-container {
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
+            transition: transform 0.1s ease;
+        }
+
+        /* Enhanced Workflow Nodes */
+        .workflow-node {
+            position: absolute;
+            min-width: 200px;
+            max-width: 280px;
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: move;
+            user-select: none;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: all 0.25s ease;
+            font-size: 13px;
+        }
+
+        .workflow-node:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .workflow-node.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            transform: scale(1.02);
+        }
+
+        .workflow-node.start-node {
+            border-color: #f59e0b;
+            background: linear-gradient(135deg, #fef3c7, #fbbf24);
+            box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+        }
+
+        /* Node Type Specific Styles */
+        .workflow-node.type-navigation { border-left: 4px solid #8b5cf6; }
+        .workflow-node.type-interaction { border-left: 4px solid #10b981; }
+        .workflow-node.type-keyboard { border-left: 4px solid #f59e0b; }
+        .workflow-node.type-data { border-left: 4px solid #ef4444; }
+        .workflow-node.type-control { border-left: 4px solid #06b6d4; }
+        .workflow-node.type-file { border-left: 4px solid #84cc16; }
+
+        .node-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 14px;
+        }
+
+        .node-header i { 
+            margin-right: 10px; 
+            font-size: 16px; 
+            color: #6366f1; 
+            width: 18px;
+            text-align: center;
+        }
+
+        .start-node .node-header { color: #92400e; }
+        .start-node .node-header i { color: #f59e0b; }
+
+        .node-content {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.4;
+            margin-bottom: 8px;
+        }
+
+        /* Enhanced Connection Points */
+        .node-connection {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            cursor: crosshair;
+            border: 3px solid #ffffff;
+            transition: all 0.25s ease;
+            z-index: 15;
+        }
+
+        .node-connection:hover { 
+            transform: scale(1.4); 
+            box-shadow: 0 0 16px rgba(0,0,0,0.4); 
+        }
+
+        .node-connection.connecting { 
+            animation: connection-pulse 1.5s infinite; 
+            transform: scale(1.4); 
+        }
+
+        .node-connection.connection-target { 
+            transform: scale(1.5); 
+            box-shadow: 0 0 16px #10b981; 
+            background: #10b981 !important; 
+            border-color: #ffffff; 
+        }
+
+        @keyframes connection-pulse {
+            0%, 100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
+            50% { opacity: 0.7; box-shadow: 0 0 20px currentColor; }
+        }
+
+        .node-input { 
+            background: #6366f1; 
+            top: 50%; 
+            left: -8px; 
+            transform: translateY(-50%); 
+        }
+
+        .node-output-success { 
+            background: #10b981; 
+            top: 30%; 
+            right: -8px; 
+            transform: translateY(-50%); 
+        }
+
+        .node-output-error { 
+            background: #ef4444; 
+            bottom: 30%; 
+            right: -8px; 
+            transform: translateY(50%); 
+        }
+
+        /* Enhanced Connection Lines */
+        .connection-line {
+            stroke-width: 3;
+            fill: none;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+        }
+
+        .connection-line:hover { 
+            stroke-width: 5; 
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2)); 
+        }
+
+        .connection-success { stroke: #10b981; }
+        .connection-error { stroke: #ef4444; stroke-dasharray: 10,5; }
+        .temp-connection { 
+            stroke-opacity: 0.7; 
+            stroke-dasharray: 6,6; 
+            animation: temp-connection-flow 1s linear infinite; 
+        }
+
+        @keyframes temp-connection-flow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: 12; }
+        }
+
+        .connection-label {
+            font-size: 12px;
+            font-weight: bold;
+            text-anchor: middle;
+            pointer-events: none;
+            fill: #ffffff;
+            stroke: rgba(0,0,0,0.8);
+            stroke-width: 2;
+            paint-order: stroke fill;
+            filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+        }
+
+        .label-success { fill: #10b981; }
+        .label-error { fill: #ef4444; }
+
+        /* Enhanced Zoom Controls */
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            z-index: 30;
+        }
+
+        .zoom-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            background: rgba(255, 255, 255, 0.95);
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(8px);
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .zoom-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: scale(1.05);
+        }
+
+        .zoom-level {
+            text-align: center;
+            font-size: 11px;
+            color: #6b7280;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 6px;
+            border-radius: 4px;
+            backdrop-filter: blur(8px);
+            font-weight: 500;
+        }
+
+        /* Enhanced Fullscreen Controls */
+        .fullscreen-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 40;
+            display: flex;
+            gap: 6px;
+        }
+
+        .fullscreen-btn {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            border: 2px solid #e5e7eb;
+            background: #ffffff;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.25s ease;
+            backdrop-filter: blur(8px);
+        }
+
+        .fullscreen-btn:hover {
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: scale(1.05);
+        }
+
+        .fullscreen-btn.active {
+            background: #3b82f6;
+            color: white;
+            border-color: #3b82f6;
+        }
+
+        /* Enhanced Button Styles */
+        .btn {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            border: 2px solid;
+            font-size: 13px;
+        }
+
+        .btn-primary { 
+            background: #3b82f6; 
+            color: #ffffff; 
+            border-color: #3b82f6; 
+        }
+
+        .btn-primary:hover { 
+            background: #2563eb; 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3); 
+        }
+
+        .btn-success { 
+            background: #10b981; 
+            color: #ffffff; 
+            border-color: #10b981; 
+        }
+
+        .btn-success:hover { 
+            background: #059669; 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3); 
+        }
+
+        .btn-secondary { 
+            background: #6b7280; 
+            color: #ffffff; 
+            border-color: #6b7280; 
+        }
+
+        .btn-secondary:hover { 
+            background: #4b5563; 
+            transform: translateY(-1px); 
+        }
+
+        .btn-danger { 
+            background: #ef4444; 
+            color: #ffffff; 
+            border-color: #ef4444; 
+        }
+
+        .btn-danger:hover { 
+            background: #dc2626; 
+            transform: translateY(-1px); 
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); 
+        }
+
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+        /* Form Controls */
+        .form-controls {
+            position: absolute;
+            top: 90px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 35;
+            display: flex;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 16px 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            backdrop-filter: blur(8px);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-group label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+        }
+
+        .form-group input, 
+        .form-group textarea, 
+        .form-group select {
+            padding: 8px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 13px;
+            min-width: 150px;
+        }
+
+        .form-group input:focus, 
+        .form-group textarea:focus, 
+        .form-group select:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+
+        /* Loading Animation */
+        .loading {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Version Badge */
+        .version-badge {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+
+        /* Flash Messages */
+        .flash-messages {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 2000;
+            max-width: 400px;
+        }
+
+        .alert {
+            padding: 14px 18px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            animation: slideInRight 0.3s ease;
+        }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(100px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .alert-success { 
+            background: #dcfce7; 
+            color: #166534; 
+            border-left: 4px solid #10b981; 
+        }
+
+        .alert-error { 
+            background: #fee2e2; 
+            color: #991b1b; 
+            border-left: 4px solid #ef4444; 
+        }
+
+        .alert-info { 
+            background: #dbeafe; 
+            color: #1e40af; 
+            border-left: 4px solid #3b82f6; 
+        }
+
+        .close-alert {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            font-size: 16px;
+            margin-left: auto;
+            opacity: 0.7;
+            transition: opacity 0.25s ease;
+        }
+
+        .close-alert:hover { opacity: 1; }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .workflow-sidebar { width: 280px; }
+            .node-properties { width: 330px; }
+            .workflow-canvas { left: 280px; right: 330px; }
+        }
+
+        @media (max-width: 1024px) {
+            .workflow-sidebar { width: 260px; }
+            .node-properties { width: 310px; }
+            .workflow-canvas { left: 260px; right: 310px; }
+            .workflow-node { min-width: 170px; font-size: 12px; padding: 14px; }
+        }
+
+        @media (max-width: 768px) {
+            .workflow-sidebar { width: 240px; }
+            .node-properties { width: 290px; }
+            .workflow-canvas { left: 240px; right: 290px; }
+            .workflow-node { min-width: 150px; font-size: 11px; padding: 12px; }
+            .workflow-toolbar { padding: 0 15px; gap: 8px; }
+            .toolbar-btn { padding: 6px 10px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="workflow-editor" id="workflowEditor">
+        <div class="version-badge">v2.0</div>
+
+        <!-- Left Sidebar - Enhanced Node Palette -->
+        <div class="workflow-sidebar">
+            <h3><i class="fas fa-puzzle-piece"></i> <span>Components Library</span></h3>
+            
+            <div class="node-palette">
+                <!-- Basic Actions -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-play-circle"></i> Basic Actions
+                    </div>
+                    <div class="palette-item basic" data-node-type="open_browser" draggable="true">
+                        <i class="fas fa-globe"></i><span>Open Browser</span>
+                    </div>
+                    <div class="palette-item basic" data-node-type="wait" draggable="true">
+                        <i class="fas fa-clock"></i><span>Wait</span>
+                    </div>
+                    <div class="palette-item basic" data-node-type="wait_element" draggable="true">
+                        <i class="fas fa-search"></i><span>Wait for Element</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Nodes -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-compass"></i> Navigation
+                    </div>
+                    <div class="palette-item navigation" data-node-type="new_tab" draggable="true">
+                        <i class="fas fa-plus-square"></i><span>New Tab</span>
+                    </div>
+                    <div class="palette-item navigation" data-node-type="activate_tab" draggable="true">
+                        <i class="fas fa-window-restore"></i><span>Activate Tab</span>
+                    </div>
+                    <div class="palette-item navigation" data-node-type="open_url" draggable="true">
+                        <i class="fas fa-external-link-alt"></i><span>Open URL</span>
+                    </div>
+                    <div class="palette-item navigation" data-node-type="close_tab" draggable="true">
+                        <i class="fas fa-times-circle"></i><span>Close Tab</span>
+                    </div>
+                    <div class="palette-item navigation" data-node-type="go_back" draggable="true">
+                        <i class="fas fa-arrow-left"></i><span>Go Back</span>
+                    </div>
+                    <div class="palette-item navigation" data-node-type="reload_page" draggable="true">
+                        <i class="fas fa-redo"></i><span>Reload Page</span>
+                    </div>
+                </div>
+
+                <!-- User Interactions -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-hand-pointer"></i> User Interactions
+                    </div>
+                    <div class="palette-item interaction" data-node-type="click" draggable="true">
+                        <i class="fas fa-mouse-pointer"></i><span>Click Element</span>
+                    </div>
+                    <div class="palette-item interaction" data-node-type="type_text" draggable="true">
+                        <i class="fas fa-keyboard"></i><span>Type Text</span>
+                    </div>
+                    <div class="palette-item interaction" data-node-type="scroll" draggable="true">
+                        <i class="fas fa-scroll"></i><span>Scroll Page</span>
+                    </div>
+                </div>
+
+                <!-- Keyboard Actions -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-keyboard"></i> Keyboard Actions
+                    </div>
+                    <div class="palette-item keyboard" data-node-type="press_key" draggable="true">
+                        <i class="fas fa-keyboard"></i><span>Press Key</span>
+                    </div>
+                </div>
+
+                <!-- Data Operations -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-database"></i> Data Operations
+                    </div>
+                    <div class="palette-item data" data-node-type="element_exists" draggable="true">
+                        <i class="fas fa-search-plus"></i><span>Element Exists</span>
+                    </div>
+                    <div class="palette-item data" data-node-type="get_text" draggable="true">
+                        <i class="fas fa-font"></i><span>Get Text</span>
+                    </div>
+                </div>
+
+                <!-- Control Flow -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-code-branch"></i> Control Flow
+                    </div>
+                    <div class="palette-item control" data-node-type="condition" draggable="true">
+                        <i class="fas fa-code-branch"></i><span>Condition</span>
+                    </div>
+                    <div class="palette-item control" data-node-type="loop" draggable="true">
+                        <i class="fas fa-sync"></i><span>Loop</span>
+                    </div>
+                    <div class="palette-item control" data-node-type="javascript" draggable="true">
+                        <i class="fas fa-code"></i><span>JavaScript</span>
+                    </div>
+                </div>
+
+                <!-- File Operations -->
+                <div class="palette-section">
+                    <div class="palette-section-title">
+                        <i class="fas fa-folder-open"></i> File Operations
+                    </div>
+                    <div class="palette-item file" data-node-type="upload" draggable="true">
+                        <i class="fas fa-upload"></i><span>Upload File</span>
+                    </div>
+                    <div class="palette-item file" data-node-type="download" draggable="true">
+                        <i class="fas fa-download"></i><span>Download File</span>
+                    </div>
+                    <div class="palette-item file" data-node-type="screenshot" draggable="true">
+                        <i class="fas fa-camera"></i><span>Take Screenshot</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Controls -->
+        <div class="form-controls" id="formControls">
+            <div class="form-group">
+                <label for="workflowName">Workflow Name *</label>
+                <input type="text" id="workflowName" placeholder="Enter workflow name..." required>
+            </div>
+            <div class="form-group">
+                <label for="workflowDescription">Description</label>
+                <textarea id="workflowDescription" rows="2" placeholder="Describe what this workflow does..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="workflowIsPublic"> Make Public
+                </label>
+            </div>
+        </div>
+
+        <!-- Enhanced Floating Toolbar -->
+        <div class="workflow-toolbar">
+            <button type="button" class="toolbar-btn" id="clearWorkflow">
+                <i class="fas fa-trash-alt"></i><span>Clear</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="validateWorkflow">
+                <i class="fas fa-check-double"></i><span>Validate</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="autoLayout">
+                <i class="fas fa-magic"></i><span>Auto Layout</span>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button type="button" class="toolbar-btn" id="exportWorkflow">
+                <i class="fas fa-file-export"></i><span>Export</span>
+            </button>
+            <button type="button" class="toolbar-btn" id="importWorkflow">
+                <i class="fas fa-file-import"></i><span>Import</span>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button type="button" class="btn btn-success" id="saveWorkflow">
+                <i class="fas fa-save"></i><span>Save Workflow</span>
+            </button>
+            <button type="button" class="btn btn-secondary" id="cancelWorkflow">
+                <i class="fas fa-times"></i><span>Cancel</span>
+            </button>
+            <div class="workflow-stats">
+                <span><i class="fas fa-project-diagram"></i><span id="nodeCount">Nodes: 0</span></span>
+                <span><i class="fas fa-link"></i><span id="connectionCount">Connections: 0</span></span>
+            </div>
+        </div>
+
+        <!-- Enhanced Fullscreen Controls -->
+        <div class="fullscreen-controls">
+            <button class="fullscreen-btn" id="toggleFullscreen" title="Toggle Fullscreen">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button class="fullscreen-btn" id="toggleCompact" title="Toggle Compact Mode">
+                <i class="fas fa-compress-arrows-alt"></i>
+            </button>
+            <button class="fullscreen-btn" id="resetLayout" title="Reset Layout">
+                <i class="fas fa-undo"></i>
+            </button>
+        </div>
+
+        <!-- Enhanced Zoom Controls -->
+        <div class="zoom-controls">
+            <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
+            <div class="zoom-level" id="zoomLevel">100%</div>
+            <button class="zoom-btn" id="zoomOut" title="Zoom Out">-</button>
+            <button class="zoom-btn" id="zoomReset" title="Reset Zoom">
+                <i class="fas fa-expand-arrows-alt"></i>
+            </button>
+        </div>
+
+        <!-- Enhanced Canvas Area -->
+        <div class="workflow-canvas" id="workflowCanvas">
+            <div class="canvas-container" id="canvasContainer">
+                <svg id="connectionSvg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
+                    <defs>
+                        <marker id="arrowSuccess" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#10b981"/>
+                        </marker>
+                        <marker id="arrowError" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0,0 L0,6 L9,3 z" fill="#ef4444"/>
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Enhanced Properties Panel -->
+        <div class="node-properties" id="nodeProperties">
+            <h3><i class="fas fa-cogs"></i> <span>Node Properties</span></h3>
+            <div id="propertiesContent">
+                <div style="text-align: center; padding: 40px 0; color: #9ca3af;">
+                    <i class="fas fa-mouse-pointer fa-2x" style="margin-bottom: 16px; display: block;"></i>
+                    <p>Select a node to edit its properties</p>
+                    <div style="margin-top: 20px; font-size: 12px; color: #6b7280;">
+                        <p><strong>🚀 Enhanced Editor v2.0:</strong></p>
+                        <p>• Multi-tab browser navigation</p>
+                        <p>• Advanced keyboard shortcuts</p>
+                        <p>• Data extraction & variables</p>
+                        <p>• Enhanced error handling</p>
+                        <p>• Improved visual editor</p>
+                        <hr style="margin: 12px 0; border-color: #e5e7eb;">
+                        <p><strong>Quick Tips:</strong></p>
+                        <p>• Drag nodes from the left palette</p>
+                        <p>• Click nodes to select and edit</p>
+                        <p>• Drag from connection points to link nodes</p>
+                        <p>• Double-click connections to remove</p>
+                        <p>• Use mouse wheel to zoom</p>
+                        <p>• Drag empty space to pan</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Enhanced Visual Workflow Editor v2.0 - Standalone Implementation
+        class VisualWorkflowEditor {
+            constructor() {
+                this.nodes = new Map();
+                this.connections = new Map();
+                this.selectedNode = null;
+                this.isDragging = false;
+                this.isConnecting = false;
+                this.isPanning = false;
+                this.connectionSource = null;
+                this.tempConnection = null;
+                this.nodeCounter = 0;
+                this.startNodeId = null;
+                this.clickCount = 0;
+                this.lastClickedConnection = null;
+                
+                // Zoom & Pan properties
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.minZoom = 0.1;
+                this.maxZoom = 3;
+                
+                // Tab management for new navigation nodes
+                this.tabVariables = new Map();
+                this.currentTabVariable = 'main_tab';
+                
+                // URL params handling
+                this.urlParams = new URLSearchParams(window.location.search);
+                this.mode = this.urlParams.get('mode') || 'create';
+                this.workflowId = this.urlParams.get('id') || null;
+                
+                this.init();
+            }
+
+            init() {
+                this.canvas = document.getElementById('workflowCanvas');
+                this.canvasContainer = document.getElementById('canvasContainer');
+                this.svg = document.getElementById('connectionSvg');
+                this.propertiesPanel = document.getElementById('propertiesContent');
+                
+                if (!this.canvas || !this.canvasContainer || !this.svg || !this.propertiesPanel) {
+                    console.error('VisualWorkflowEditor: Required elements not found');
+                    return;
+                }
+                
+                this.setupEventListeners();
+                this.setupPalette();
+                this.setupZoomControls();
+                this.setupFormControls();
+                this.updateCounts();
+                
+                if (this.mode === 'create') {
+                    this.createStartNode();
+                } else if (this.mode === 'edit' && this.workflowId) {
+                    this.loadWorkflowForEdit();
+                }
+                
+                this.updateWorkflowData();
+            }
+
+            setupEventListeners() {
+                if (!this.canvas) return;
+                
+                // Canvas events
+                this.canvas.addEventListener('click', (e) => this.onCanvasClick(e));
+                this.canvas.addEventListener('drop', (e) => this.onCanvasDrop(e));
+                this.canvas.addEventListener('dragover', (e) => e.preventDefault());
+                this.canvas.addEventListener('wheel', (e) => this.onWheel(e));
+                this.canvas.addEventListener('mousedown', (e) => this.onCanvasMouseDown(e));
+
+                // Global events
+                document.addEventListener('mouseup', (e) => this.onMouseUp(e));
+                document.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                document.addEventListener('keydown', (e) => this.onKeyDown(e));
+
+                // Toolbar events
+                this.setupToolbarEvents();
+            }
+
+            setupToolbarEvents() {
+                const clearBtn = document.getElementById('clearWorkflow');
+                const validateBtn = document.getElementById('validateWorkflow');
+                const exportBtn = document.getElementById('exportWorkflow');
+                const importBtn = document.getElementById('importWorkflow');
+                const autoLayoutBtn = document.getElementById('autoLayout');
+                const saveBtn = document.getElementById('saveWorkflow');
+                const cancelBtn = document.getElementById('cancelWorkflow');
+
+                if (clearBtn) clearBtn.addEventListener('click', () => this.clearWorkflow());
+                if (validateBtn) validateBtn.addEventListener('click', () => this.validateWorkflow());
+                if (exportBtn) exportBtn.addEventListener('click', () => this.exportWorkflow());
+                if (importBtn) importBtn.addEventListener('click', () => this.importWorkflow());
+                if (autoLayoutBtn) autoLayoutBtn.addEventListener('click', () => this.autoLayout());
+                if (saveBtn) saveBtn.addEventListener('click', () => this.saveWorkflow());
+                if (cancelBtn) cancelBtn.addEventListener('click', () => this.cancelWorkflow());
+            }
+
+            setupFormControls() {
+                const nameInput = document.getElementById('workflowName');
+                const descInput = document.getElementById('workflowDescription');
+                const publicCheckbox = document.getElementById('workflowIsPublic');
+
+                if (nameInput) nameInput.addEventListener('input', () => this.updateWorkflowData());
+                if (descInput) descInput.addEventListener('input', () => this.updateWorkflowData());
+                if (publicCheckbox) publicCheckbox.addEventListener('change', () => this.updateWorkflowData());
+            }
+
+            setupPalette() {
+                document.querySelectorAll('.palette-item').forEach(item => {
+                    item.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('nodeType', item.dataset.nodeType);
+                    });
+                });
+            }
+
+            setupZoomControls() {
+                const zoomInBtn = document.getElementById('zoomIn');
+                const zoomOutBtn = document.getElementById('zoomOut');
+                const zoomResetBtn = document.getElementById('zoomReset');
+                const fullscreenBtn = document.getElementById('toggleFullscreen');
+                const compactBtn = document.getElementById('toggleCompact');
+                const resetLayoutBtn = document.getElementById('resetLayout');
+
+                if (zoomInBtn) zoomInBtn.addEventListener('click', () => this.zoomIn());
+                if (zoomOutBtn) zoomOutBtn.addEventListener('click', () => this.zoomOut());
+                if (zoomResetBtn) zoomResetBtn.addEventListener('click', () => this.resetZoom());
+                if (fullscreenBtn) fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+                if (compactBtn) compactBtn.addEventListener('click', () => this.toggleCompact());
+                if (resetLayoutBtn) resetLayoutBtn.addEventListener('click', () => this.resetLayout());
+                
+                this.updateZoomLevel();
+            }
+
+            // Node Management
+            createStartNode() {
+                const startNodeId = this.createNode('start', 100, 100);
+                this.startNodeId = startNodeId;
+                const startNode = this.nodes.get(startNodeId);
+                if (startNode) {
+                    startNode.element.classList.add('start-node');
+                    const inputPoint = startNode.element.querySelector('.node-input');
+                    if (inputPoint) inputPoint.style.display = 'none';
+                }
+            }
+
+            createNode(type, x, y) {
+                const nodeId = `node_${++this.nodeCounter}`;
+                const config = this.getNodeConfig(type);
+                
+                const nodeElement = document.createElement('div');
+                nodeElement.className = `workflow-node type-${this.getNodeCategory(type)}`;
+                nodeElement.id = nodeId;
+                nodeElement.style.left = `${x}px`;
+                nodeElement.style.top = `${y}px`;
+                
+                nodeElement.innerHTML = `
+                    <div class="node-header">
+                        <i class="${config.icon}"></i>
+                        <span>${config.title}</span>
+                    </div>
+                    <div class="node-content">${config.description}</div>
+                    ${type !== 'start' ? '<div class="node-input node-connection" data-type="input"></div>' : ''}
+                    <div class="node-output-success node-connection" data-type="success" data-node="${nodeId}"></div>
+                    <div class="node-output-error node-connection" data-type="error" data-node="${nodeId}"></div>
+                `;
+
+                this.setupNodeEvents(nodeElement, nodeId);
+                this.canvasContainer.appendChild(nodeElement);
+                
+                this.nodes.set(nodeId, {
+                    id: nodeId,
+                    type: type,
+                    position: { x, y },
+                    data: { ...config.defaultData },
+                    element: nodeElement
+                });
+
+                this.updateCounts();
+                this.selectNode(nodeId);
+                this.updateWorkflowData();
+                
+                return nodeId;
+            }
+
+            getNodeCategory(type) {
+                const categories = {
+                    'open_browser': 'basic', 'wait': 'basic', 'wait_element': 'basic',
+                    'new_tab': 'navigation', 'activate_tab': 'navigation', 'open_url': 'navigation',
+                    'close_tab': 'navigation', 'go_back': 'navigation', 'reload_page': 'navigation',
+                    'click': 'interaction', 'type_text': 'interaction', 'scroll': 'interaction',
+                    'press_key': 'keyboard',
+                    'element_exists': 'data', 'get_text': 'data',
+                    'condition': 'control', 'loop': 'control', 'javascript': 'control',
+                    'upload': 'file', 'download': 'file', 'screenshot': 'file'
+                };
+                return categories[type] || 'basic';
+            }
+
+            getNodeConfig(type) {
+                const configs = {
+                    'start': {
+                        title: 'Start',
+                        icon: 'fas fa-play',
+                        description: 'Workflow start point',
+                        defaultData: {},
+                        fields: []
+                    },
+                    
+                    // BASIC ACTIONS
+                    'open_browser': {
+                        title: 'Open Browser',
+                        icon: 'fas fa-globe',
+                        description: 'Open a web page in browser',
+                        defaultData: { url: 'https://example.com' },
+                        fields: [
+                            { name: 'url', label: 'URL', type: 'url', defaultValue: 'https://example.com', required: true,
+                              placeholder: 'https://example.com', description: 'The URL to navigate to' }
+                        ]
+                    },
+                    'wait': {
+                        title: 'Wait',
+                        icon: 'fas fa-clock',
+                        description: 'Wait for specified duration',
+                        defaultData: { duration: 5 },
+                        fields: [
+                            { name: 'duration', label: 'Duration (seconds)', type: 'number', defaultValue: 5, min: 1, max: 300, required: true,
+                              placeholder: '5', description: 'How long to wait in seconds' }
+                        ]
+                    },
+                    'wait_element': {
+                        title: 'Wait for Element',
+                        icon: 'fas fa-search',
+                        description: 'Wait until element appears',
+                        defaultData: { xpath: '', timeout: 10 },
+                        fields: [
+                            { name: 'xpath', label: 'Element XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//button[@id="submit"]', description: 'XPath selector for the element to wait for' },
+                            { name: 'timeout', label: 'Timeout (seconds)', type: 'number', defaultValue: 10, min: 1, max: 60,
+                              placeholder: '10', description: 'Maximum time to wait for element' }
+                        ]
+                    },
+
+                    // NAVIGATION NODES
+                    'new_tab': {
+                        title: 'New Tab',
+                        icon: 'fas fa-plus-square',
+                        description: 'Open a new browser tab',
+                        defaultData: { url: '', tab_variable: 'new_tab' },
+                        fields: [
+                            { name: 'url', label: 'URL (optional)', type: 'url', defaultValue: '',
+                              placeholder: 'https://example.com', description: 'URL to open in new tab (leave empty for blank tab)' },
+                            { name: 'tab_variable', label: 'Tab Variable Name', type: 'text', defaultValue: 'new_tab', required: true,
+                              placeholder: 'new_tab', description: 'Variable name to reference this tab later' }
+                        ]
+                    },
+                    'activate_tab': {
+                        title: 'Activate Tab',
+                        icon: 'fas fa-window-restore',
+                        description: 'Switch to a specific tab',
+                        defaultData: { tab_variable: 'main_tab' },
+                        fields: [
+                            { name: 'tab_variable', label: 'Tab Variable Name', type: 'text', defaultValue: 'main_tab', required: true,
+                              placeholder: 'main_tab', description: 'Name of the tab variable to switch to' }
+                        ]
+                    },
+                    'open_url': {
+                        title: 'Open URL',
+                        icon: 'fas fa-external-link-alt',
+                        description: 'Navigate to URL in current tab',
+                        defaultData: { url: 'https://example.com' },
+                        fields: [
+                            { name: 'url', label: 'URL', type: 'url', defaultValue: 'https://example.com', required: true,
+                              placeholder: 'https://example.com', description: 'URL to navigate to in current tab' }
+                        ]
+                    },
+                    'close_tab': {
+                        title: 'Close Tab',
+                        icon: 'fas fa-times-circle',
+                        description: 'Close current or specific tab',
+                        defaultData: { tab_variable: '', close_current: true },
+                        fields: [
+                            { name: 'close_current', label: 'Close Current Tab', type: 'checkbox', defaultValue: true,
+                              checkboxLabel: 'Close currently active tab', description: 'If unchecked, specify tab variable below' },
+                            { name: 'tab_variable', label: 'Tab Variable (if not current)', type: 'text', defaultValue: '',
+                              placeholder: 'tab_name', description: 'Variable name of specific tab to close' }
+                        ]
+                    },
+                    'go_back': {
+                        title: 'Go Back',
+                        icon: 'fas fa-arrow-left',
+                        description: 'Navigate back in browser history',
+                        defaultData: { steps: 1 },
+                        fields: [
+                            { name: 'steps', label: 'Steps Back', type: 'number', defaultValue: 1, min: 1, max: 10,
+                              placeholder: '1', description: 'Number of pages to go back' }
+                        ]
+                    },
+                    'reload_page': {
+                        title: 'Reload Page',
+                        icon: 'fas fa-redo',
+                        description: 'Reload the current page',
+                        defaultData: { force_reload: false },
+                        fields: [
+                            { name: 'force_reload', label: 'Force Reload', type: 'checkbox', defaultValue: false,
+                              checkboxLabel: 'Force reload (bypass cache)', description: 'Force reload ignoring cached content' }
+                        ]
+                    },
+
+                    // USER INTERACTIONS
+                    'click': {
+                        title: 'Click Element',
+                        icon: 'fas fa-mouse-pointer',
+                        description: 'Click on a page element',
+                        defaultData: { xpath: '', wait_timeout: 10, click_type: 'single' },
+                        fields: [
+                            { name: 'xpath', label: 'XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//button[@id="submit"]', description: 'XPath selector for element to click' },
+                            { name: 'click_type', label: 'Click Type', type: 'select', defaultValue: 'single',
+                              options: [
+                                  { value: 'single', label: 'Single Click' },
+                                  { value: 'double', label: 'Double Click' },
+                                  { value: 'right', label: 'Right Click' }
+                              ], description: 'Type of mouse click to perform' },
+                            { name: 'wait_timeout', label: 'Wait Timeout (sec)', type: 'number', defaultValue: 10, min: 1, max: 60,
+                              placeholder: '10', description: 'Time to wait for element before clicking' }
+                        ]
+                    },
+                    'type_text': {
+                        title: 'Type Text',
+                        icon: 'fas fa-keyboard',
+                        description: 'Type text into an input field',
+                        defaultData: { xpath: '', text: '', clear_first: true, typing_speed: 'normal' },
+                        fields: [
+                            { name: 'xpath', label: 'Input XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//input[@name="username"]', description: 'XPath selector for input field' },
+                            { name: 'text', label: 'Text to Type', type: 'textarea', defaultValue: '', required: true,
+                              placeholder: 'Enter your text here...', description: 'Text content to type into the field' },
+                            { name: 'clear_first', label: 'Clear Field First', type: 'checkbox', defaultValue: true,
+                              checkboxLabel: 'Clear existing content before typing', description: 'Clear field before entering new text' },
+                            { name: 'typing_speed', label: 'Typing Speed', type: 'select', defaultValue: 'normal',
+                              options: [
+                                  { value: 'slow', label: 'Slow (Human-like)' },
+                                  { value: 'normal', label: 'Normal' },
+                                  { value: 'fast', label: 'Fast' }
+                              ], description: 'Speed of text entry simulation' }
+                        ]
+                    },
+                    'scroll': {
+                        title: 'Scroll Page',
+                        icon: 'fas fa-scroll',
+                        description: 'Scroll the page or element',
+                        defaultData: { direction: 'down', pixels: 500, target_element: '', smooth: true },
+                        fields: [
+                            { name: 'direction', label: 'Direction', type: 'select', defaultValue: 'down',
+                              options: [
+                                  { value: 'up', label: 'Up' },
+                                  { value: 'down', label: 'Down' },
+                                  { value: 'left', label: 'Left' },
+                                  { value: 'right', label: 'Right' },
+                                  { value: 'top', label: 'To Top' },
+                                  { value: 'bottom', label: 'To Bottom' }
+                              ], description: 'Direction to scroll' },
+                            { name: 'pixels', label: 'Pixels', type: 'number', defaultValue: 500, min: 1, max: 5000,
+                              placeholder: '500', description: 'Number of pixels to scroll (ignored for top/bottom)' },
+                            { name: 'target_element', label: 'Target Element (optional)', type: 'text', defaultValue: '',
+                              placeholder: '//div[@class="content"]', description: 'XPath of element to scroll (leave empty for page)' },
+                            { name: 'smooth', label: 'Smooth Scroll', type: 'checkbox', defaultValue: true,
+                              checkboxLabel: 'Enable smooth scrolling animation', description: 'Use smooth scrolling effect' }
+                        ]
+                    },
+
+                    // KEYBOARD NODES
+                    'press_key': {
+                        title: 'Press Key',
+                        icon: 'fas fa-keyboard',
+                        description: 'Press keyboard keys or combinations',
+                        defaultData: { key_combination: 'Enter', modifier_keys: '', hold_duration: 0.1 },
+                        fields: [
+                            { name: 'key_combination', label: 'Key/Combination', type: 'text', defaultValue: 'Enter', required: true,
+                              placeholder: 'Enter, Escape, F5, etc.', description: 'Key name or combination (e.g., Ctrl+C, Alt+Tab)' },
+                            { name: 'modifier_keys', label: 'Modifier Keys', type: 'select', defaultValue: '',
+                              options: [
+                                  { value: '', label: 'None' },
+                                  { value: 'ctrl', label: 'Ctrl' },
+                                  { value: 'alt', label: 'Alt' },
+                                  { value: 'shift', label: 'Shift' },
+                                  { value: 'ctrl+shift', label: 'Ctrl+Shift' },
+                                  { value: 'ctrl+alt', label: 'Ctrl+Alt' },
+                                  { value: 'alt+shift', label: 'Alt+Shift' }
+                              ], description: 'Additional modifier keys to hold' },
+                            { name: 'hold_duration', label: 'Hold Duration (sec)', type: 'number', defaultValue: 0.1, min: 0.1, max: 5,
+                              placeholder: '0.1', description: 'How long to hold the key combination' }
+                        ]
+                    },
+
+                    // DATA NODES
+                    'element_exists': {
+                        title: 'Element Exists',
+                        icon: 'fas fa-search-plus',
+                        description: 'Check if element exists on page',
+                        defaultData: { xpath: '', save_result: true, result_variable: 'element_exists' },
+                        fields: [
+                            { name: 'xpath', label: 'Element XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//div[@class="success"]', description: 'XPath selector for element to check' },
+                            { name: 'save_result', label: 'Save Result', type: 'checkbox', defaultValue: true,
+                              checkboxLabel: 'Save result to variable', description: 'Store the boolean result in a variable' },
+                            { name: 'result_variable', label: 'Result Variable Name', type: 'text', defaultValue: 'element_exists',
+                              placeholder: 'element_exists', description: 'Variable name to store the result (true/false)' }
+                        ]
+                    },
+                    'get_text': {
+                        title: 'Get Text',
+                        icon: 'fas fa-font',
+                        description: 'Extract text from element',
+                        defaultData: { xpath: '', attribute: 'text', save_variable: 'extracted_text' },
+                        fields: [
+                            { name: 'xpath', label: 'Element XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//h1[@class="title"]', description: 'XPath selector for element to get text from' },
+                            { name: 'attribute', label: 'Attribute to Extract', type: 'select', defaultValue: 'text',
+                              options: [
+                                  { value: 'text', label: 'Text Content' },
+                                  { value: 'value', label: 'Value Attribute' },
+                                  { value: 'href', label: 'Href Attribute' },
+                                  { value: 'src', label: 'Src Attribute' },
+                                  { value: 'title', label: 'Title Attribute' },
+                                  { value: 'class', label: 'Class Attribute' },
+                                  { value: 'id', label: 'ID Attribute' }
+                              ], description: 'What to extract from the element' },
+                            { name: 'save_variable', label: 'Save to Variable', type: 'text', defaultValue: 'extracted_text', required: true,
+                              placeholder: 'extracted_text', description: 'Variable name to store extracted content' }
+                        ]
+                    },
+
+                    // FILE OPERATIONS
+                    'upload': {
+                        title: 'Upload File',
+                        icon: 'fas fa-upload',
+                        description: 'Upload a file',
+                        defaultData: { xpath: '', file_path: '', wait_after: 2 },
+                        fields: [
+                            { name: 'xpath', label: 'File Input XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//input[@type="file"]', description: 'XPath selector for file input element' },
+                            { name: 'file_path', label: 'File Path', type: 'text', defaultValue: '', required: true,
+                              placeholder: '/path/to/file.pdf', description: 'Full path to the file to upload' },
+                            { name: 'wait_after', label: 'Wait After Upload (sec)', type: 'number', defaultValue: 2, min: 0, max: 30,
+                              placeholder: '2', description: 'Time to wait after file upload completes' }
+                        ]
+                    },
+                    'download': {
+                        title: 'Download File',
+                        icon: 'fas fa-download',
+                        description: 'Download a file',
+                        defaultData: { xpath: '', save_path: '', wait_timeout: 30 },
+                        fields: [
+                            { name: 'xpath', label: 'Download Link XPath', type: 'text', defaultValue: '', required: true,
+                              placeholder: '//a[@class="download-link"]', description: 'XPath selector for download link' },
+                            { name: 'save_path', label: 'Save Path', type: 'text', defaultValue: '',
+                              placeholder: '/path/to/downloads/', description: 'Directory to save downloaded file' },
+                            { name: 'wait_timeout', label: 'Download Timeout (sec)', type: 'number', defaultValue: 30, min: 5, max: 300,
+                              placeholder: '30', description: 'Maximum time to wait for download completion' }
+                        ]
+                    },
+                    'screenshot': {
+                        title: 'Take Screenshot',
+                        icon: 'fas fa-camera',
+                        description: 'Take a screenshot',
+                        defaultData: { save_path: '', full_page: false, element_xpath: '' },
+                        fields: [
+                            { name: 'save_path', label: 'Save Path', type: 'text', defaultValue: '', required: true,
+                              placeholder: '/path/to/screenshot.png', description: 'Full path where screenshot will be saved' },
+                            { name: 'full_page', label: 'Full Page', type: 'checkbox', defaultValue: false,
+                              checkboxLabel: 'Capture entire page (not just visible area)', description: 'Screenshot the full page content' },
+                            { name: 'element_xpath', label: 'Element XPath (optional)', type: 'text', defaultValue: '',
+                              placeholder: '//div[@id="content"]', description: 'XPath of specific element to screenshot' }
+                        ]
+                    },
+
+                    // CONTROL FLOW
+                    'condition': {
+                        title: 'Condition',
+                        icon: 'fas fa-code-branch',
+                        description: 'Conditional branching',
+                        defaultData: { condition_type: 'element_exists', xpath: '', expected_value: '', variable_name: '' },
+                        fields: [
+                            { name: 'condition_type', label: 'Condition Type', type: 'select', defaultValue: 'element_exists', required: true,
+                              options: [
+                                  { value: 'element_exists', label: 'Element Exists' },
+                                  { value: 'element_visible', label: 'Element Visible' },
+                                  { value: 'text_contains', label: 'Text Contains' },
+                                  { value: 'url_contains', label: 'URL Contains' },
+                                  { value: 'variable_equals', label: 'Variable Equals' },
+                                  { value: 'variable_contains', label: 'Variable Contains' }
+                              ], description: 'Type of condition to evaluate' },
+                            { name: 'xpath', label: 'XPath (if needed)', type: 'text', defaultValue: '',
+                              placeholder: '//div[@class="message"]', description: 'XPath selector (for element-based conditions)' },
+                            { name: 'expected_value', label: 'Expected Value', type: 'text', defaultValue: '',
+                              placeholder: 'Success', description: 'Value to compare against' },
+                            { name: 'variable_name', label: 'Variable Name (if needed)', type: 'text', defaultValue: '',
+                              placeholder: 'my_variable', description: 'Variable name (for variable-based conditions)' }
+                        ]
+                    },
+                    'loop': {
+                        title: 'Loop',
+                        icon: 'fas fa-sync',
+                        description: 'Repeat actions',
+                        defaultData: { loop_type: 'count', count: 5, condition: '', max_iterations: 100 },
+                        fields: [
+                            { name: 'loop_type', label: 'Loop Type', type: 'select', defaultValue: 'count',
+                              options: [
+                                  { value: 'count', label: 'Fixed Count' },
+                                  { value: 'while', label: 'While Condition' },
+                                  { value: 'foreach', label: 'For Each Element' }
+                              ], description: 'Type of loop to execute' },
+                            { name: 'count', label: 'Count', type: 'number', defaultValue: 5, min: 1, max: 100,
+                              placeholder: '5', description: 'Number of iterations (for fixed count)' },
+                            { name: 'condition', label: 'Condition/XPath', type: 'text', defaultValue: '',
+                              placeholder: '//div[@class="item"]', description: 'Condition or XPath (for while/foreach)' },
+                            { name: 'max_iterations', label: 'Max Iterations', type: 'number', defaultValue: 100, min: 1, max: 1000,
+                              placeholder: '100', description: 'Safety limit for maximum iterations' }
+                        ]
+                    },
+                    'javascript': {
+                        title: 'Execute JavaScript',
+                        icon: 'fas fa-code',
+                        description: 'Execute custom JavaScript code',
+                        defaultData: { script: 'console.log("Hello World");', return_variable: '' },
+                        fields: [
+                            { name: 'script', label: 'JavaScript Code', type: 'textarea', defaultValue: 'console.log("Hello World");', required: true,
+                              placeholder: 'console.log("Hello World");', description: 'JavaScript code to execute in browser context' },
+                            { name: 'return_variable', label: 'Return Variable (optional)', type: 'text', defaultValue: '',
+                              placeholder: 'js_result', description: 'Variable name to store script return value' }
+                        ]
+                    }
+                };
+
+                return configs[type] || configs['wait'];
+            }
+
+            setupNodeEvents(nodeElement, nodeId) {
+                nodeElement.addEventListener('mousedown', (e) => this.onNodeMouseDown(e, nodeId));
+                nodeElement.addEventListener('click', (e) => this.onNodeClick(e, nodeId));
+                
+                nodeElement.querySelectorAll('.node-connection').forEach(conn => {
+                    conn.addEventListener('mouseenter', () => this.onConnectionHover(conn, true));
+                    conn.addEventListener('mouseleave', () => this.onConnectionHover(conn, false));
+                    conn.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        if (conn.dataset.type !== 'input') {
+                            this.startConnection(e, nodeId, conn.dataset.type, conn);
+                        }
+                    });
+                });
+            }
+
+            // Properties Panel
+            showNodeProperties(nodeId) {
+                const node = this.nodes.get(nodeId);
+                if (!node || !this.propertiesPanel) return;
+
+                const config = this.getNodeConfig(node.type);
+                
+                let html = `
+                    <h4><i class="${config.icon}"></i> ${config.title} Properties</h4>
+                    <div class="property-group">
+                        <label class="property-label">Node ID</label>
+                        <input type="text" class="property-input" value="${nodeId}" disabled>
+                    </div>
+                `;
+
+                if (node.type === 'start') {
+                    html += `
+                        <div class="property-group">
+                            <p><i class="fas fa-info-circle"></i> This is the workflow start point. All execution begins here.</p>
+                        </div>
+                    `;
+                } else {
+                    config.fields.forEach(field => {
+                        const value = node.data[field.name] || field.defaultValue || '';
+                        html += `
+                            <div class="property-group">
+                                <label class="property-label">${field.label}${field.required ? ' *' : ''}</label>
+                                ${this.createPropertyField(field, value, nodeId)}
+                                ${field.description ? `<small class="property-help">${field.description}</small>` : ''}
+                            </div>
+                        `;
+                    });
+                }
+
+                if (node.type !== 'start') {
+                    html += `
+                        <div class="property-group">
+                            <button class="btn btn-danger btn-sm" onclick="workflowEditor.deleteNode('${nodeId}')">
+                                <i class="fas fa-trash"></i> Delete Node
+                            </button>
+                        </div>
+                    `;
+                }
+
+                this.propertiesPanel.innerHTML = html;
+            }
+
+            createPropertyField(field, value, nodeId) {
+                const fieldId = `prop_${nodeId}_${field.name}`;
+                const onChange = `workflowEditor.updateNodeData('${nodeId}', '${field.name}', this.${field.type === 'checkbox' ? 'checked' : 'value'})`;
+                
+                switch (field.type) {
+                    case 'textarea':
+                        return `<textarea id="${fieldId}" class="property-input" rows="3" onchange="${onChange}" placeholder="${field.placeholder || ''}">${value}</textarea>`;
+                    case 'select':
+                        const options = field.options.map(opt => 
+                            `<option value="${opt.value}" ${opt.value === value ? 'selected' : ''}>${opt.label}</option>`
+                        ).join('');
+                        return `<select id="${fieldId}" class="property-input" onchange="${onChange}">${options}</select>`;
+                    case 'checkbox':
+                        return `<label><input type="checkbox" id="${fieldId}" class="property-input" ${value ? 'checked' : ''} onchange="${onChange}"> ${field.checkboxLabel || 'Enable'}</label>`;
+                    case 'number':
+                        return `<input type="number" id="${fieldId}" class="property-input" value="${value}" 
+                                   min="${field.min || 0}" max="${field.max || 999999}" onchange="${onChange}" 
+                                   placeholder="${field.placeholder || ''}">`;
+                    default:
+                        return `<input type="${field.type}" id="${fieldId}" class="property-input" value="${value}" onchange="${onChange}" 
+                                   placeholder="${field.placeholder || ''}">`;
+                }
+            }
+
+            updateNodeData(nodeId, fieldName, value) {
+                const node = this.nodes.get(nodeId);
+                if (node) {
+                    node.data[fieldName] = value;
+                    this.updateWorkflowData();
+                }
+            }
+
+            selectNode(nodeId) {
+                this.clearSelection();
+                this.selectedNode = nodeId;
+                const node = this.nodes.get(nodeId);
+                if (node) {
+                    node.element.classList.add('selected');
+                    this.showNodeProperties(nodeId);
+                }
+            }
+
+            clearSelection() {
+                this.nodes.forEach(node => {
+                    node.element.classList.remove('selected');
+                });
+                this.selectedNode = null;
+                this.clearProperties();
+            }
+
+            clearProperties() {
+                if (!this.propertiesPanel) return;
+                
+                this.propertiesPanel.innerHTML = `
+                    <div style="text-align: center; padding: 40px 0; color: #9ca3af;">
+                        <i class="fas fa-mouse-pointer fa-2x" style="margin-bottom: 16px; display: block;"></i>
+                        <p>Select a node to edit its properties</p>
+                        <div style="margin-top: 20px; font-size: 12px; color: #6b7280;">
+                            <p><strong>🚀 Enhanced Editor v2.0:</strong></p>
+                            <p>• Multi-tab browser navigation</p>
+                            <p>• Advanced keyboard shortcuts</p>
+                            <p>• Data extraction & variables</p>
+                            <p>• Enhanced error handling</p>
+                            <p>• Improved visual editor</p>
+                        </div>
+                    </div>
+                `;
+            }
+
+            deleteNode(nodeId) {
+                if (nodeId === this.startNodeId) {
+                    this.showMessage('Cannot delete start node', 'error');
+                    return;
+                }
+
+                const node = this.nodes.get(nodeId);
+                if (node && confirm(`Delete ${node.type} node?`)) {
+                    // Remove connections
+                    [...this.connections.keys()].forEach(connId => {
+                        const conn = this.connections.get(connId);
+                        if (conn.source === nodeId || conn.target === nodeId) {
+                            this.deleteConnection(connId);
+                        }
+                    });
+
+                    node.element.remove();
+                    this.nodes.delete(nodeId);
+                    
+                    if (this.selectedNode === nodeId) {
+                        this.selectedNode = null;
+                        this.clearProperties();
+                    }
+                    
+                    this.updateCounts();
+                    this.updateWorkflowData();
+                }
+            }
+
+            // Zoom & Pan Methods
+            onWheel(e) {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                const newZoom = Math.max(this.minZoom, Math.min(this.maxZoom, this.zoom + delta));
+                
+                if (newZoom !== this.zoom) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    const mouseY = e.clientY - rect.top;
+                    
+                    this.zoomAt(mouseX, mouseY, newZoom);
+                }
+            }
+
+            zoomAt(x, y, newZoom) {
+                const oldZoom = this.zoom;
+                this.zoom = newZoom;
+                
+                // Adjust pan to zoom at mouse position
+                this.panX = x - (x - this.panX) * (newZoom / oldZoom);
+                this.panY = y - (y - this.panY) * (newZoom / oldZoom);
+                
+                this.updateTransform();
+                this.updateZoomLevel();
+            }
+
+            zoomIn() { this.setZoom(Math.min(this.maxZoom, this.zoom + 0.2)); }
+            zoomOut() { this.setZoom(Math.max(this.minZoom, this.zoom - 0.2)); }
+            
+            setZoom(newZoom) {
+                this.zoom = newZoom;
+                this.updateTransform();
+                this.updateZoomLevel();
+            }
+
+            resetZoom() {
+                this.zoom = 1;
+                this.panX = 0;
+                this.panY = 0;
+                this.updateTransform();
+                this.updateZoomLevel();
+            }
+
+            updateTransform() {
+                if (this.canvasContainer) {
+                    this.canvasContainer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+                    this.updateAllConnections();
+                }
+            }
+
+            updateZoomLevel() {
+                const zoomElement = document.getElementById('zoomLevel');
+                if (zoomElement) {
+                    zoomElement.textContent = `${Math.round(this.zoom * 100)}%`;
+                }
+            }
+
+            // Canvas Events
+            onCanvasMouseDown(e) {
+                if (e.target === this.canvas || e.target === this.canvasContainer) {
+                    this.isPanning = true;
+                    this.panStartX = e.clientX - this.panX;
+                    this.panStartY = e.clientY - this.panY;
+                    this.canvas.style.cursor = 'grabbing';
+                    e.preventDefault();
+                }
+            }
+
+            onMouseMove(e) {
+                if (this.isPanning) {
+                    this.panX = e.clientX - this.panStartX;
+                    this.panY = e.clientY - this.panStartY;
+                    this.updateTransform();
+                } else if (this.isDragging && this.dragNodeId) {
+                    this.handleNodeDrag(e);
+                } else if (this.isConnecting && this.tempConnection) {
+                    this.updateTempConnection(this.getConnectionScreenPos(this.connectionSource.element), { x: e.clientX, y: e.clientY });
+                }
+            }
+
+            onMouseUp(e) {
+                if (this.isPanning) {
+                    this.isPanning = false;
+                    this.canvas.style.cursor = 'grab';
+                }
+                
+                if (this.isConnecting) {
+                    this.handleConnectionEnd(e);
+                }
+                
+                this.isDragging = false;
+                this.dragNodeId = null;
+            }
+
+            onCanvasClick(e) {
+                if (e.target === this.canvas || e.target === this.canvasContainer || e.target === this.svg) {
+                    this.clearSelection();
+                }
+            }
+
+            onNodeClick(e, nodeId) {
+                e.stopPropagation();
+                this.selectNode(nodeId);
+            }
+
+            onCanvasDrop(e) {
+                e.preventDefault();
+                const nodeType = e.dataTransfer.getData('nodeType');
+                if (nodeType) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = (e.clientX - rect.left - this.panX) / this.zoom - 75;
+                    const y = (e.clientY - rect.top - this.panY) / this.zoom - 25;
+                    this.createNode(nodeType, Math.max(0, x), Math.max(0, y));
+                }
+            }
+
+            onKeyDown(e) {
+                if (e.key === 'Delete' && this.selectedNode && this.selectedNode !== this.startNodeId) {
+                    this.deleteNode(this.selectedNode);
+                } else if (e.key === 'Escape') {
+                    if (this.isConnecting) {
+                        this.cleanupConnection();
+                    }
+                }
+            }
+
+            onNodeMouseDown(e, nodeId) {
+                if (e.button === 0) {
+                    this.isDragging = true;
+                    this.dragNodeId = nodeId;
+                    const node = this.nodes.get(nodeId);
+                    this.dragStart = {
+                        x: e.clientX,
+                        y: e.clientY,
+                        nodeX: node.position.x,
+                        nodeY: node.position.y
+                    };
+                    e.preventDefault();
+                }
+            }
+
+            handleNodeDrag(e) {
+                const dx = (e.clientX - this.dragStart.x) / this.zoom;
+                const dy = (e.clientY - this.dragStart.y) / this.zoom;
+                
+                const newX = Math.max(0, this.dragStart.nodeX + dx);
+                const newY = Math.max(0, this.dragStart.nodeY + dy);
+                
+                const node = this.nodes.get(this.dragNodeId);
+                node.position.x = newX;
+                node.position.y = newY;
+                node.element.style.left = `${newX}px`;
+                node.element.style.top = `${newY}px`;
+                
+                this.updateAllConnections();
+            }
+
+            // Connection Management (simplified)
+            onConnectionHover(connectionElement, isHovering) {
+                if (this.isConnecting && connectionElement.dataset.type === 'input') {
+                    const targetNodeId = this.getNodeIdFromElement(connectionElement);
+                    if (targetNodeId !== this.connectionSource.nodeId) {
+                        connectionElement.classList.toggle('connection-target', isHovering);
+                    }
+                }
+            }
+
+            startConnection(e, nodeId, connectionType, element) {
+                this.isConnecting = true;
+                this.connectionSource = { nodeId, type: connectionType, element };
+                element.classList.add('connecting');
+                document.body.style.cursor = 'crosshair';
+                this.createTempConnection(e);
+            }
+
+            createTempConnection(e) {
+                const sourcePos = this.getConnectionScreenPos(this.connectionSource.element);
+                
+                this.tempConnection = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                this.tempConnection.classList.add('connection-line', `connection-${this.connectionSource.type}`, 'temp-connection');
+                this.tempConnection.style.pointerEvents = 'none';
+                
+                this.svg.appendChild(this.tempConnection);
+                this.updateTempConnection(sourcePos, { x: e.clientX, y: e.clientY });
+            }
+
+            updateTempConnection(start, end) {
+                if (!this.tempConnection) return;
+
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const adjustedEnd = {
+                    x: (end.x - canvasRect.left - this.panX) / this.zoom,
+                    y: (end.y - canvasRect.top - this.panY) / this.zoom
+                };
+
+                const path = this.createBezierPath(start, adjustedEnd);
+                this.tempConnection.setAttribute('d', path);
+            }
+
+            handleConnectionEnd(e) {
+                const elementsAtPoint = document.elementsFromPoint(e.clientX, e.clientY);
+                let targetConnection = null;
+                let targetNodeId = null;
+
+                for (let element of elementsAtPoint) {
+                    if (element.classList.contains('node-connection') && element.dataset.type === 'input') {
+                        targetConnection = element;
+                        targetNodeId = this.getNodeIdFromElement(element);
+                        break;
+                    }
+                }
+
+                if (targetConnection && targetNodeId && targetNodeId !== this.connectionSource.nodeId) {
+                    this.createConnection(this.connectionSource.nodeId, targetNodeId, this.connectionSource.type);
+                }
+                
+                this.cleanupConnection();
+            }
+
+            createConnection(sourceId, targetId, type = 'success') {
+                if (sourceId === targetId) return false;
+
+                const connId = `${sourceId}_${targetId}_${type}`;
+                if (this.connections.has(connId)) return false;
+
+                if (this.wouldCreateCycle(sourceId, targetId)) {
+                    this.showMessage('Cannot create connection: This would create a cycle in the workflow', 'error');
+                    return false;
+                }
+
+                const sourceNode = this.nodes.get(sourceId);
+                const targetNode = this.nodes.get(targetId);
+                if (!sourceNode || !targetNode) return false;
+
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.classList.add('connection-line', `connection-${type}`);
+                path.setAttribute('data-connection', connId);
+                path.setAttribute('marker-end', `url(#arrow${type === 'success' ? 'Success' : 'Error'})`);
+                
+                const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                label.textContent = type === 'success' ? '✓' : '✗';
+                label.classList.add('connection-label', `label-${type}`);
+                
+                this.svg.appendChild(path);
+                this.svg.appendChild(label);
+                
+                this.connections.set(connId, {
+                    id: connId,
+                    source: sourceId,
+                    target: targetId,
+                    type: type,
+                    element: path,
+                    label: label
+                });
+
+                // Double-click to delete connection
+                path.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.handleConnectionClick(connId);
+                });
+
+                this.updateConnection(connId);
+                this.updateCounts();
+                this.updateWorkflowData();
+                
+                return true;
+            }
+
+            handleConnectionClick(connId) {
+                if (this.lastClickedConnection === connId) {
+                    this.clickCount++;
+                    if (this.clickCount === 2) {
+                        this.deleteConnection(connId);
+                        this.clickCount = 0;
+                        this.lastClickedConnection = null;
+                        return;
+                    }
+                } else {
+                    this.clickCount = 1;
+                    this.lastClickedConnection = connId;
+                }
+
+                setTimeout(() => {
+                    this.clickCount = 0;
+                    this.lastClickedConnection = null;
+                }, 400);
+            }
+
+            deleteConnection(connId) {
+                const conn = this.connections.get(connId);
+                if (conn) {
+                    conn.element.remove();
+                    if (conn.label) conn.label.remove();
+                    this.connections.delete(connId);
+                    this.updateCounts();
+                    this.updateWorkflowData();
+                }
+            }
+
+            cleanupConnection() {
+                this.isConnecting = false;
+                if (this.tempConnection) {
+                    this.tempConnection.remove();
+                    this.tempConnection = null;
+                }
+                
+                if (this.connectionSource && this.connectionSource.element) {
+                    this.connectionSource.element.classList.remove('connecting');
+                }
+                
+                this.connectionSource = null;
+                document.body.style.cursor = 'default';
+                
+                document.querySelectorAll('.connection-target').forEach(el => {
+                    el.classList.remove('connection-target');
+                });
+            }
+
+            wouldCreateCycle(sourceId, targetId) {
+                const visited = new Set();
+                const stack = [targetId];
+                
+                while (stack.length > 0) {
+                    const currentId = stack.pop();
+                    if (currentId === sourceId) return true;
+                    if (visited.has(currentId)) continue;
+                    
+                    visited.add(currentId);
+                    
+                    this.connections.forEach(conn => {
+                        if (conn.source === currentId) {
+                            stack.push(conn.target);
+                        }
+                    });
+                }
+                
+                return false;
+            }
+
+            getConnectionScreenPos(connectionElement) {
+                const rect = connectionElement.getBoundingClientRect();
+                const canvasRect = this.canvas.getBoundingClientRect();
+                
+                return {
+                    x: (rect.left + rect.width / 2 - canvasRect.left - this.panX) / this.zoom,
+                    y: (rect.top + rect.height / 2 - canvasRect.top - this.panY) / this.zoom
+                };
+            }
+
+            getNodeConnectionPoint(node, type) {
+                const rect = node.element.getBoundingClientRect();
+                const canvasRect = this.canvas.getBoundingClientRect();
+                
+                const baseX = (rect.left - canvasRect.left - this.panX) / this.zoom;
+                const baseY = (rect.top - canvasRect.top - this.panY) / this.zoom;
+                const width = rect.width / this.zoom;
+                const height = rect.height / this.zoom;
+                
+                switch (type) {
+                    case 'input': return { x: baseX, y: baseY + height / 2 };
+                    case 'success': return { x: baseX + width, y: baseY + height * 0.3 };
+                    case 'error': return { x: baseX + width, y: baseY + height * 0.7 };
+                    default: return { x: baseX + width / 2, y: baseY + height / 2 };
+                }
+            }
+
+            createBezierPath(start, end) {
+                const dx = end.x - start.x;
+                const dy = end.y - start.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const curvature = Math.min(distance * 0.3, 100);
+                
+                const cp1x = start.x + curvature;
+                const cp2x = end.x - curvature;
+                
+                return `M ${start.x} ${start.y} C ${cp1x} ${start.y}, ${cp2x} ${end.y}, ${end.x} ${end.y}`;
+            }
+
+            updateConnection(connId) {
+                const conn = this.connections.get(connId);
+                if (!conn) return;
+
+                const sourceNode = this.nodes.get(conn.source);
+                const targetNode = this.nodes.get(conn.target);
+                if (!sourceNode || !targetNode) return;
+
+                const sourcePos = this.getNodeConnectionPoint(sourceNode, conn.type);
+                const targetPos = this.getNodeConnectionPoint(targetNode, 'input');
+
+                const path = this.createBezierPath(sourcePos, targetPos);
+                conn.element.setAttribute('d', path);
+
+                if (conn.label) {
+                    const midX = (sourcePos.x + targetPos.x) / 2;
+                    const midY = (sourcePos.y + targetPos.y) / 2 - 5;
+                    conn.label.setAttribute('x', midX);
+                    conn.label.setAttribute('y', midY);
+                }
+            }
+
+            updateAllConnections() {
+                this.connections.forEach((conn, connId) => {
+                    this.updateConnection(connId);
+                });
+            }
+
+            getNodeIdFromElement(element) {
+                let current = element;
+                while (current && current !== this.canvasContainer) {
+                    if (current.classList && current.classList.contains('workflow-node')) {
+                        return current.id;
+                    }
+                    current = current.parentElement;
+                }
+                return null;
+            }
+
+            // Workflow Operations
+            updateCounts() {
+                const nodeCountElement = document.getElementById('nodeCount');
+                const connectionCountElement = document.getElementById('connectionCount');
+                
+                if (nodeCountElement) {
+                    nodeCountElement.textContent = `Nodes: ${this.nodes.size}`;
+                }
+                if (connectionCountElement) {
+                    connectionCountElement.textContent = `Connections: ${this.connections.size}`;
+                }
+            }
+
+            updateWorkflowData() {
+                // Update internal workflow data - no need for hidden input in standalone mode
+                const data = this.exportWorkflowData();
+                // Store in memory for later use
+                this.workflowData = data;
+            }
+
+            validateWorkflow() {
+                const issues = [];
+                
+                if (!this.startNodeId || !this.nodes.has(this.startNodeId)) {
+                    issues.push('No start node found');
+                }
+                
+                const connectedNodes = new Set([this.startNodeId]);
+                this.connections.forEach(conn => {
+                    connectedNodes.add(conn.source);
+                    connectedNodes.add(conn.target);
+                });
+                
+                this.nodes.forEach((node, nodeId) => {
+                    if (nodeId !== this.startNodeId && !connectedNodes.has(nodeId)) {
+                        issues.push(`Node ${nodeId} (${node.type}) is not connected to workflow`);
+                    }
+                });
+                
+                // Enhanced validation for new node types
+                this.nodes.forEach((node, nodeId) => {
+                    const config = this.getNodeConfig(node.type);
+                    config.fields.forEach(field => {
+                        if (field.required && (!node.data[field.name] || node.data[field.name] === '')) {
+                            issues.push(`Node ${nodeId} (${node.type}): ${field.label} is required`);
+                        }
+                    });
+
+                    // Special validation for tab management nodes
+                    if (['activate_tab', 'close_tab'].includes(node.type)) {
+                        const tabVar = node.data.tab_variable;
+                        if (tabVar && !this.hasNodeCreatingTab(tabVar)) {
+                            issues.push(`Node ${nodeId} (${node.type}): Tab variable "${tabVar}" is not created by any new_tab node`);
+                        }
+                    }
+                });
+                
+                if (!this.hasValidExecutionPath()) {
+                    issues.push('No valid execution path from start node');
+                }
+                
+                if (issues.length === 0) {
+                    this.showMessage('✅ Workflow validation passed!', 'success');
+                } else {
+                    this.showMessage('❌ Validation issues:\n\n' + issues.join('\n'), 'error');
+                }
+                
+                return issues.length === 0;
+            }
+
+            hasNodeCreatingTab(tabVariable) {
+                for (let [nodeId, node] of this.nodes) {
+                    if (node.type === 'new_tab' && node.data.tab_variable === tabVariable) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            hasValidExecutionPath() {
+                if (!this.startNodeId) return false;
+                
+                const visited = new Set();
+                const stack = [this.startNodeId];
+                
+                while (stack.length > 0) {
+                    const currentId = stack.pop();
+                    if (visited.has(currentId)) continue;
+                    visited.add(currentId);
+                    
+                    this.connections.forEach(conn => {
+                        if (conn.source === currentId) {
+                            stack.push(conn.target);
+                        }
+                    });
+                }
+                
+                return visited.size > 1;
+            }
+
+            clearWorkflow() {
+                if (this.nodes.size <= 1 || confirm('Clear entire workflow? This will remove all nodes and connections.')) {
+                    this.nodes.clear();
+                    this.connections.clear();
+                    
+                    this.canvasContainer.innerHTML = `
+                        <svg id="connectionSvg" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1;">
+                            <defs>
+                                <marker id="arrowSuccess" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#10b981"/>
+                                </marker>
+                                <marker id="arrowError" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+                                    <path d="M0,0 L0,6 L9,3 z" fill="#ef4444"/>
+                                </marker>
+                            </defs>
+                        </svg>
+                    `;
+                    this.svg = document.getElementById('connectionSvg');
+                    this.selectedNode = null;
+                    this.nodeCounter = 0;
+                    this.startNodeId = null;
+                    this.tabVariables.clear();
+                    this.currentTabVariable = 'main_tab';
+                    this.clearProperties();
+                    this.updateCounts();
+                    
+                    if (this.mode === 'create') {
+                        this.createStartNode();
+                    }
+                    
+                    this.updateWorkflowData();
+                }
+            }
+
+            exportWorkflowData() {
+                const nodes = [];
+                const connections = [];
+                
+                this.nodes.forEach(node => {
+                    nodes.push({
+                        id: node.id,
+                        type: node.type,
+                        position: node.position,
+                        data: node.data,
+                        isStart: node.id === this.startNodeId
+                    });
+                });
+                
+                this.connections.forEach(conn => {
+                    connections.push({
+                        source: conn.source,
+                        target: conn.target,
+                        type: conn.type
+                    });
+                });
+                
+                return {
+                    workflow_type: 'visual',
+                    nodes: nodes,
+                    connections: connections,
+                    startNode: this.startNodeId,
+                    metadata: {
+                        created: new Date().toISOString(),
+                        nodeCount: nodes.length,
+                        connectionCount: connections.length,
+                        version: '2.0',
+                        mode: this.mode
+                    }
+                };
+            }
+
+            exportWorkflow() {
+                const data = this.exportWorkflowData();
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `workflow_${this.mode}_${new Date().getTime()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            importWorkflow() {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.json';
+                input.onchange = (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const data = JSON.parse(event.target.result);
+                                this.loadWorkflowData(data);
+                                this.showMessage('Workflow imported successfully!', 'success');
+                            } catch (error) {
+                                this.showMessage('Error importing workflow: ' + error.message, 'error');
+                            }
+                        };
+                        reader.readAsText(file);
+                    }
+                };
+                input.click();
+            }
+
+            loadWorkflowData(data) {
+                if (data.workflow_type === 'visual' && data.nodes) {
+                    this.clearWorkflow();
+                    
+                    // Import nodes
+                    data.nodes.forEach(nodeData => {
+                        if (nodeData.type !== 'start') {
+                            const nodeId = this.createNode(nodeData.type, nodeData.position.x, nodeData.position.y);
+                            const node = this.nodes.get(nodeId);
+                            if (node) {
+                                node.data = { ...nodeData.data };
+                                node.id = nodeData.id;
+                                node.element.id = nodeData.id;
+                                this.nodes.delete(nodeId);
+                                this.nodes.set(nodeData.id, node);
+                            }
+                        } else if (this.mode === 'create') {
+                            // Update start node position
+                            const startNode = this.nodes.get(this.startNodeId);
+                            if (startNode) {
+                                startNode.position = nodeData.position;
+                                startNode.element.style.left = `${nodeData.position.x}px`;
+                                startNode.element.style.top = `${nodeData.position.y}px`;
+                            }
+                        } else {
+                            // For edit mode, create start node if it doesn't exist
+                            if (!this.startNodeId) {
+                                this.createStartNode();
+                                const startNode = this.nodes.get(this.startNodeId);
+                                if (startNode) {
+                                    startNode.position = nodeData.position;
+                                    startNode.element.style.left = `${nodeData.position.x}px`;
+                                    startNode.element.style.top = `${nodeData.position.y}px`;
+                                    startNode.data = { ...nodeData.data };
+                                    startNode.id = nodeData.id;
+                                    startNode.element.id = nodeData.id;
+                                    this.nodes.delete(this.startNodeId);
+                                    this.nodes.set(nodeData.id, startNode);
+                                    this.startNodeId = nodeData.id;
+                                }
+                            }
+                        }
+                    });
+                    
+                    // Import connections
+                    if (data.connections) {
+                        data.connections.forEach(connData => {
+                            this.createConnection(connData.source, connData.target, connData.type);
+                        });
+                    }
+                    
+                    this.updateCounts();
+                    this.updateWorkflowData();
+                }
+            }
+
+            autoLayout() {
+                // Auto-layout algorithm for better node positioning
+                const nodes = Array.from(this.nodes.values());
+                if (nodes.length <= 1) return;
+
+                // Simple tree layout algorithm
+                const visited = new Set();
+                const levels = new Map();
+                
+                // BFS to determine levels
+                const queue = [{ id: this.startNodeId, level: 0 }];
+                levels.set(this.startNodeId, 0);
+                visited.add(this.startNodeId);
+                
+                while (queue.length > 0) {
+                    const { id, level } = queue.shift();
+                    
+                    this.connections.forEach(conn => {
+                        if (conn.source === id && !visited.has(conn.target)) {
+                            visited.add(conn.target);
+                            levels.set(conn.target, level + 1);
+                            queue.push({ id: conn.target, level: level + 1 });
+                        }
+                    });
+                }
+                
+                // Group nodes by level
+                const nodesByLevel = new Map();
+                levels.forEach((level, nodeId) => {
+                    if (!nodesByLevel.has(level)) {
+                        nodesByLevel.set(level, []);
+                    }
+                    nodesByLevel.get(level).push(nodeId);
+                });
+                
+                // Position nodes
+                const levelWidth = 300;
+                const nodeHeight = 120;
+                const startX = 100;
+                const startY = 100;
+                
+                nodesByLevel.forEach((nodeIds, level) => {
+                    const x = startX + level * levelWidth;
+                    nodeIds.forEach((nodeId, index) => {
+                        const y = startY + index * nodeHeight;
+                        const node = this.nodes.get(nodeId);
+                        if (node) {
+                            node.position.x = x;
+                            node.position.y = y;
+                            node.element.style.left = `${x}px`;
+                            node.element.style.top = `${y}px`;
+                        }
+                    });
+                });
+                
+                this.updateAllConnections();
+                this.updateWorkflowData();
+                
+                // Animate to show the change
+                this.resetZoom();
+                this.showMessage('Layout applied successfully!', 'success');
+            }
+
+            // UI Controls
+            toggleFullscreen() {
+                const editor = document.querySelector('.workflow-editor');
+                const fullscreenIcon = document.querySelector('#toggleFullscreen i');
+                
+                const isFullscreen = editor.classList.contains('fullscreen');
+                
+                editor.classList.toggle('fullscreen', !isFullscreen);
+                if (fullscreenIcon) {
+                    fullscreenIcon.className = !isFullscreen ? 'fas fa-compress' : 'fas fa-expand';
+                }
+                document.body.style.overflow = !isFullscreen ? 'hidden' : 'auto';
+            }
+
+            toggleCompact() {
+                const toolbar = document.querySelector('.workflow-toolbar');
+                toolbar?.classList.toggle('compact');
+            }
+
+            resetLayout() {
+                const editor = document.querySelector('.workflow-editor');
+                const sidebar = document.querySelector('.workflow-sidebar');
+                const properties = document.querySelector('.node-properties');
+                const toolbar = document.querySelector('.workflow-toolbar');
+                
+                editor?.classList.remove('fullscreen', 'sidebar-collapsed', 'properties-collapsed');
+                sidebar?.classList.remove('collapsed');
+                properties?.classList.remove('collapsed');
+                toolbar?.classList.remove('compact');
+                
+                document.body.style.overflow = 'auto';
+                const fullscreenIcon = document.querySelector('#toggleFullscreen i');
+                if (fullscreenIcon) fullscreenIcon.className = 'fas fa-expand';
+                
+                this.resetZoom();
+            }
+
+            // Workflow Operations
+            async loadWorkflowForEdit() {
+                try {
+                    const response = await fetch(`/api/scenarios/${this.workflowId}/edit`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const workflowData = await response.json();
+                    
+                    // Populate form fields
+                    document.getElementById('workflowName').value = workflowData.name;
+                    document.getElementById('workflowDescription').value = workflowData.description || '';
+                    document.getElementById('workflowIsPublic').checked = workflowData.is_public;
+                    
+                    // Load workflow data into editor
+                    if (workflowData.steps) {
+                        this.loadWorkflowData(workflowData.steps);
+                    }
+                    
+                    this.showMessage('Workflow loaded for editing', 'success');
+                } catch (error) {
+                    console.error('Error loading workflow for edit:', error);
+                    this.showMessage('Error loading workflow: ' + error.message, 'error');
+                }
+            }
+
+            async saveWorkflow() {
+                const nameInput = document.getElementById('workflowName');
+                const descInput = document.getElementById('workflowDescription');
+                const publicCheckbox = document.getElementById('workflowIsPublic');
+
+                const name = nameInput?.value?.trim();
+                const description = descInput?.value?.trim() || '';
+                const isPublic = publicCheckbox?.checked || false;
+
+                if (!name) {
+                    this.showMessage('Please enter a workflow name', 'error');
+                    nameInput?.focus();
+                    return;
+                }
+
+                if (this.nodes.size <= 1) {
+                    this.showMessage('Please add at least one action node to your workflow', 'error');
+                    return;
+                }
+
+                if (!this.validateWorkflow()) {
+                    const proceed = confirm('Workflow has validation issues. Save anyway?');
+                    if (!proceed) return;
+                }
+
+                try {
+                    this.showLoading('Saving workflow...');
+
+                    const workflowData = this.exportWorkflowData();
+                    
+                    const payload = {
+                        name: name,
+                        description: description,
+                        is_public: isPublic,
+                        steps: workflowData
+                    };
+
+                    let response;
+                    
+                    if (this.mode === 'edit' && this.workflowId) {
+                        // Update existing workflow
+                        response = await fetch(`/api/scenarios/${this.workflowId}`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                    } else {
+                        // Create new workflow
+                        response = await fetch('/api/scenarios', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(payload)
+                        });
+                    }
+
+                    this.hideLoading();
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        this.showMessage(`Workflow ${this.mode === 'edit' ? 'updated' : 'created'} successfully!`, 'success');
+                        
+                        // Redirect back to automation page after a short delay
+                        setTimeout(() => {
+                            window.location.href = '/automation';
+                        }, 1500);
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.error || 'Failed to save workflow');
+                    }
+                } catch (error) {
+                    this.hideLoading();
+                    console.error('Error saving workflow:', error);
+                    this.showMessage('Error saving workflow: ' + error.message, 'error');
+                }
+            }
+
+            cancelWorkflow() {
+                if (confirm('Are you sure you want to cancel? Any unsaved changes will be lost.')) {
+                    window.location.href = '/automation';
+                }
+            }
+
+            // Utility Methods
+            showMessage(message, type = 'info') {
+                this.removeExistingMessages();
+                
+                const alertDiv = document.createElement('div');
+                alertDiv.className = `alert alert-${type}`;
+                alertDiv.innerHTML = `
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                    <span>${message}</span>
+                    <button class="close-alert">&times;</button>
+                `;
+                
+                let flashContainer = document.querySelector('.flash-messages');
+                if (!flashContainer) {
+                    flashContainer = document.createElement('div');
+                    flashContainer.className = 'flash-messages';
+                    document.body.appendChild(flashContainer);
+                }
+                
+                flashContainer.appendChild(alertDiv);
+                
+                // Auto remove after 5 seconds
+                setTimeout(() => {
+                    alertDiv.style.opacity = '0';
+                    setTimeout(() => alertDiv.remove(), 300);
+                }, 5000);
+                
+                // Add click handler for close button
+                alertDiv.querySelector('.close-alert').addEventListener('click', function() {
+                    alertDiv.remove();
+                });
+            }
+
+            removeExistingMessages() {
+                const existingMessages = document.querySelectorAll('.flash-messages .alert');
+                existingMessages.forEach(msg => msg.remove());
+            }
+
+            showLoading(message) {
+                this.removeExistingMessages();
+                
+                const loadingDiv = document.createElement('div');
+                loadingDiv.className = 'alert alert-info loading-message';
+                loadingDiv.innerHTML = `
+                    <div class="loading"></div>
+                    <span>${message}</span>
+                `;
+                
+                let flashContainer = document.querySelector('.flash-messages');
+                if (!flashContainer) {
+                    flashContainer = document.createElement('div');
+                    flashContainer.className = 'flash-messages';
+                    document.body.appendChild(flashContainer);
+                }
+                
+                flashContainer.appendChild(loadingDiv);
+            }
+
+            hideLoading() {
+                const loadingMessage = document.querySelector('.loading-message');
+                if (loadingMessage) {
+                    loadingMessage.remove();
+                }
+            }
+        }
+
+        // Global instance and initialization
+        let workflowEditor = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                workflowEditor = new VisualWorkflowEditor();
+                console.log('🚀 Enhanced Visual Workflow Editor v2.0 initialized');
+            } catch (error) {
+                console.error('Error initializing workflow editor:', error);
+                document.body.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; font-family: Arial, sans-serif;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 48px; color: #ef4444; margin-bottom: 16px;"></i>
+                        <h2 style="color: #374151; margin-bottom: 8px;">Error Loading Editor</h2>
+                        <p style="color: #6b7280; text-align: center; max-width: 400px;">${error.message}</p>
+                        <button onclick="window.location.reload()" style="margin-top: 16px; padding: 8px 16px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer;">Reload Page</button>
+                    </div>
+                `;
+            }
+        });
+
+        // Enhanced Performance Monitoring
+        if ('performance' in window) {
+            window.addEventListener('load', function() {
+                setTimeout(function() {
+                    const perfData = performance.getEntriesByType('navigation')[0];
+                    const loadTime = Math.round(perfData.loadEventEnd - perfData.loadEventStart);
+                    console.log(`🚀 Enhanced Editor loaded in ${loadTime}ms`);
+                    
+                    if (loadTime > 2000) {
+                        console.warn('⚠️ Slow loading detected. Consider optimizing resources.');
+                    }
+                }, 0);
+            });
+        }
+    </script>
+</body>
+</html>
